@@ -1,6 +1,6 @@
 {
   "name": "mcp-postgres-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A Model Context Protocol server for PostgreSQL database operations",
   "type": "module",
   "mcpName": "io.github.antonorlov/mcp-postgres-server",
