@@ -22,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Published to the official MCP Registry as `io.github.antonorlov/mcp-postgres-server`:
   `server.json` describes the package and all 22 environment variables, and a GitHub Actions
-  workflow publishes on a version tag using OIDC, with a guard that the version in
-  `server.json` matches `package.json`.
+  workflow publishes via a manual run after the npm release, using OIDC, with a guard that
+  the version in `server.json` matches `package.json`.
 - `glama.json` identifies the maintainer for the Glama listing.
 
 ## [0.3.0] - 2026-09-13

@@ -1,8 +1,8 @@
 name: Publish to MCP Registry
 
+# The registry verifies the npm version exists before registering it, so npm must be
+# published first. Manual trigger only, with a preflight that says so plainly.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 env:
@@ -16,6 +16,13 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check the version is already published to npm
+        run: |
+          v=$(node -p "require('./package.json').version")
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/mcp-postgres-server/$v")
+          test "$code" = "200" \
+            || { echo "mcp-postgres-server@$v is not on npm yet (HTTP $code). Publish to npm first, then run this workflow."; exit 1; }
 
       - name: Check server.json version matches package.json
         run: |
