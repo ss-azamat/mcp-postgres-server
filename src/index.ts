@@ -639,9 +639,11 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         ? 'Run one read-only SQL statement against the connected PostgreSQL database and get rows back as JSON. ' +
           'Send exactly one statement per call (SELECT, WITH, EXPLAIN, or SHOW). It runs inside an engine-enforced read-only transaction, so any write is refused by the database. ' +
           'Use this tool for all data reading, aggregation, and query planning. ' +
+          'Returns {rows, rowCount, returnedRows, truncated}, plus hint when truncated is true. ' +
           capHint
         : 'Run one SQL statement against the connected PostgreSQL database and get rows back as JSON. ' +
           'Because the server was started with PG_ALLOW_WRITE=true, the statement is sent directly and can modify data - use the execute tool for writes and this for reads. Send exactly one statement per call. ' +
+          'Returns {rows, rowCount, returnedRows, truncated}, plus hint when truncated is true. ' +
           capHint,
       inputSchema: {
         sql: z.string().describe('One SQL statement. Use $1, $2, ... for parameters.'),
@@ -655,12 +657,13 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
   server.registerTool(
     'execute',
     {
-      title: 'Run a write statement',
+      title: config.readOnly ? 'Run a write statement (disabled)' : 'Run a write statement',
       description: config.readOnly
         ? 'Run a data-modifying SQL statement (INSERT/UPDATE/DELETE or DDL). Currently DISABLED: the server is read-only, so this returns an error and changes nothing. To enable writes, the operator must start the server with PG_ALLOW_WRITE=true.'
         : 'Run one data-modifying SQL statement - INSERT, UPDATE, DELETE, or DDL like CREATE/ALTER - and get the affected row count back. ' +
           'Use the query tool for anything that reads. Send exactly one complete statement per call; do not use explicit transaction or session control (BEGIN, COMMIT, SET, ...). ' +
-          'Prefer $1, $2 placeholders with the params array. This tool exists because the server was started with PG_ALLOW_WRITE=true.',
+          'Prefer $1, $2 placeholders with the params array. This tool exists because the server was started with PG_ALLOW_WRITE=true. ' +
+          'Returns {rowCount, command}; rowCount is null for statements that affect no rows, such as DDL.',
       inputSchema: {
         sql: z
           .string()
@@ -677,7 +680,8 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
     {
       title: 'List schemas',
       description:
-        'List every schema in the connected database. Start here when exploring an unfamiliar database, then call list_tables for the schema you care about.',
+        'List every schema in the connected database. Start here when exploring an unfamiliar database, then call list_tables for the schema you care about. ' +
+        'Returns {schemas: [name, ...]}.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -689,7 +693,8 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
     {
       title: 'List tables',
       description:
-        "List all tables in a schema (default: 'public'). Use this before querying tables you have not seen yet, then call describe_table for column details.",
+        "List all tables in a schema (default: 'public'). Use this before querying tables you have not seen yet, then call describe_table for column details. " +
+        'Returns {tables: [name, ...]}.',
       inputSchema: {
         schema: z.string().optional().describe("Schema name (default: 'public')"),
       },
@@ -703,7 +708,8 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
     {
       title: 'Describe a table',
       description:
-        'Show the structure of one table: column names, data types, nullability, defaults, and primary-key membership. Call this before writing non-trivial queries against a table.',
+        'Show the structure of one table: column names, data types, nullability, defaults, and primary-key membership. Call this before writing non-trivial queries against a table. ' +
+        'Returns {columns: [{column, type, nullable, default, is_primary_key}, ...]}.',
       inputSchema: {
         table: z.string().describe('Table name'),
         schema: z.string().optional().describe("Schema name (default: 'public')"),
@@ -721,7 +727,8 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         description:
           'Switch the server to a different PostgreSQL database at runtime, replacing the current connection. ' +
           'Only use this when the user explicitly asks to connect elsewhere or the configured connection fails - normal operation uses the connection from the environment. ' +
-          'Read-only mode and the statement timeout are re-applied to the new connection.',
+          'Read-only mode and the statement timeout are re-applied to the new connection. ' +
+          'Returns {message, host, database}.',
         inputSchema: {
           host: z.string().describe('Database host'),
           port: z.number().optional().describe('Database port (default: 5432)'),
