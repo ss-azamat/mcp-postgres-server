@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-09-14
+
+### Changed
+
+- Every tool now documents the exact shape it returns, so the model knows the response
+  before the first call: `query` returns `{rows, rowCount, returnedRows, truncated}` (plus
+  `hint` when truncated), `execute` returns `{rowCount, command}` (`rowCount` is null for
+  statements that affect no rows, such as DDL), `list_schemas` returns `{schemas}`,
+  `list_tables` returns `{tables}`, `describe_table` returns `{columns}` with named fields,
+  and `connect_db` returns `{message, host, database}`.
+- In read-only mode the `execute` tool is titled "Run a write statement (disabled)", so its
+  title no longer contradicts a description that starts with DISABLED.
+
+### Added
+
+- Published to the official MCP Registry as `io.github.antonorlov/mcp-postgres-server`:
+  `server.json` describes the package and all 22 environment variables, and a GitHub Actions
+  workflow publishes on a version tag using OIDC, with a guard that the version in
+  `server.json` matches `package.json`.
+- `glama.json` identifies the maintainer for the Glama listing.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added
@@ -91,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Releases prior to 0.2.0 predate this changelog.
 
-[Unreleased]: https://github.com/antonorlov/mcp-postgres-server/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/antonorlov/mcp-postgres-server/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/antonorlov/mcp-postgres-server/releases/tag/v0.3.1
 [0.3.0]: https://github.com/antonorlov/mcp-postgres-server/releases/tag/v0.3.0
 [0.2.0]: https://github.com/antonorlov/mcp-postgres-server/releases/tag/v0.2.0

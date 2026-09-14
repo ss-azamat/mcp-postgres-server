@@ -3,7 +3,7 @@
   "name": "io.github.antonorlov/mcp-postgres-server",
   "title": "PostgreSQL",
   "description": "MCP server for PostgreSQL: local, Docker, RDS, Neon, Supabase, or behind an SSH bastion.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "repository": {
     "url": "https://github.com/antonorlov/mcp-postgres-server",
     "source": "github"
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "mcp-postgres-server",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
