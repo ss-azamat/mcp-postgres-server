@@ -1,7 +1,7 @@
 {
   "name": "mcp-postgres-server",
   "version": "0.3.0",
-  "description": "A Model Context Protocol server for PostgreSQL database operations",
+  "description": "MCP server for PostgreSQL: local, Docker, RDS, Neon, Supabase, or behind an SSH bastion.",
   "type": "module",
   "mcpName": "io.github.antonorlov/mcp-postgres-server",
   "bin": {
@@ -23,14 +23,21 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "postgres",
     "postgresql",
     "database",
+    "sql",
+    "ssh-tunnel",
+    "ai-agents",
+    "claude-code",
+    "llm",
     "claude",
+    "cursor",
     "anthropic"
   ],
-  "author": "",
+  "author": "antonorlov",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -49,6 +56,10 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/antonorlov/mcp-postgres-server.git"
+  },
+  "homepage": "https://github.com/antonorlov/mcp-postgres-server#readme",
+  "bugs": {
+    "url": "https://github.com/antonorlov/mcp-postgres-server/issues"
   },
   "publishConfig": {
     "access": "public"

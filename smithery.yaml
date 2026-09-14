@@ -3,8 +3,8 @@
 startCommand:
   type: stdio
   configSchema:
-    # Configuration for mcp-postgres-server 0.2.0. Connect with either a single
-    # DATABASE_URL (preferred) or the individual PG_* fields. Read-only by default.
+    # Connect with either a single DATABASE_URL (preferred) or the individual
+    # PG_* fields. Read-only by default.
     type: object
     properties:
       databaseUrl:

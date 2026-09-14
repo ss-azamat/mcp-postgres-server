@@ -1,0 +1,166 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.antonorlov/mcp-postgres-server",
+  "title": "PostgreSQL",
+  "description": "MCP server for PostgreSQL: local, Docker, RDS, Neon, Supabase, or behind an SSH bastion.",
+  "version": "0.3.0",
+  "repository": {
+    "url": "https://github.com/antonorlov/mcp-postgres-server",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/antonorlov/mcp-postgres-server#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "mcp-postgres-server",
+      "version": "0.3.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DATABASE_URL",
+          "description": "Full connection string (preferred). Supports sslmode in the URL.",
+          "format": "string",
+          "isSecret": true,
+          "placeholder": "postgres://user:password@localhost:5432/mydb?sslmode=require"
+        },
+        {
+          "name": "PG_HOST",
+          "description": "Database host (fallback when DATABASE_URL is not set).",
+          "format": "string"
+        },
+        {
+          "name": "PG_PORT",
+          "description": "Database port.",
+          "format": "number",
+          "default": "5432"
+        },
+        {
+          "name": "PG_USER",
+          "description": "Database user.",
+          "format": "string"
+        },
+        {
+          "name": "PG_PASSWORD",
+          "description": "Database password.",
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "PG_DATABASE",
+          "description": "Database name.",
+          "format": "string"
+        },
+        {
+          "name": "PG_ALLOW_WRITE",
+          "description": "When true, execute performs writes and reads are sent directly. Off (default) is read-only: execute refuses writes and each read runs in a READ ONLY transaction.",
+          "format": "boolean",
+          "default": "false",
+          "choices": [
+            "false",
+            "true"
+          ]
+        },
+        {
+          "name": "PG_SSLMODE",
+          "description": "TLS mode. require/allow/prefer encrypt without verifying the certificate; verify-ca/verify-full verify it (supply a CA via PG_SSL_CA). Unlike libpq, allow/prefer do not fall back to plaintext, so a server without TLS needs disable.",
+          "format": "string",
+          "choices": [
+            "disable",
+            "allow",
+            "prefer",
+            "require",
+            "verify-ca",
+            "verify-full"
+          ]
+        },
+        {
+          "name": "PG_SSL_CA",
+          "description": "Path to a CA certificate file. Setting it by itself implies verify-full.",
+          "format": "filepath"
+        },
+        {
+          "name": "PG_ENABLE_RUNTIME_CONNECT",
+          "description": "Register the connect_db tool (runtime credential switching).",
+          "format": "boolean",
+          "default": "false",
+          "choices": [
+            "false",
+            "true"
+          ]
+        },
+        {
+          "name": "PG_MAX_RESULT_BYTES",
+          "description": "Byte budget for a query result sent to the model. Whole rows are kept while they fit; over the budget returnedRows < rowCount and truncated is true.",
+          "format": "number",
+          "default": "32768"
+        },
+        {
+          "name": "PG_STATEMENT_TIMEOUT",
+          "description": "Statement timeout in milliseconds, applied to every session.",
+          "format": "number",
+          "default": "30000"
+        },
+        {
+          "name": "PG_CONNECT_TIMEOUT",
+          "description": "Timeout in milliseconds for a single connect attempt (raise it for slow links or SSH tunnels).",
+          "format": "number",
+          "default": "10000"
+        },
+        {
+          "name": "PG_SSH_HOST",
+          "description": "SSH bastion host. Setting it enables tunneling: the server reaches the database only through an SSH tunnel to this host. Needs the ssh2 optional dependency.",
+          "format": "string"
+        },
+        {
+          "name": "PG_SSH_PORT",
+          "description": "SSH bastion port.",
+          "format": "number",
+          "default": "22"
+        },
+        {
+          "name": "PG_SSH_USER",
+          "description": "SSH username.",
+          "format": "string"
+        },
+        {
+          "name": "PG_SSH_PRIVATE_KEY",
+          "description": "Path to a private key file. If unset, auth falls back like ssh: a running agent (SSH_AUTH_SOCK), then a default key (~/.ssh/id_ed25519, id_rsa, id_ecdsa).",
+          "format": "filepath"
+        },
+        {
+          "name": "PG_SSH_PASSPHRASE",
+          "description": "Passphrase for the private key, if encrypted.",
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "PG_SSH_AGENT",
+          "description": "true to use the ambient agent (SSH_AUTH_SOCK), or an explicit socket path / Windows named pipe.",
+          "format": "string"
+        },
+        {
+          "name": "PG_SSH_PASSWORD",
+          "description": "SSH login password. Opt-in; a key or agent takes precedence. Prefer keys, a bastion often disables password auth.",
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "PG_SSH_FINGERPRINT",
+          "description": "Pinned host-key fingerprint (SHA256:...). Host-key verification is mandatory and set only this way: without it the tunnel refuses to connect. Get it with ssh-keygen -lF host.",
+          "format": "string",
+          "placeholder": "SHA256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "name": "PG_SSH_KEEPALIVE_INTERVAL",
+          "description": "SSH keepalive interval in ms; the tunnel drops after 3 unanswered keepalives, and the next call reconnects.",
+          "format": "number",
+          "default": "15000"
+        }
+      ]
+    }
+  ]
+}

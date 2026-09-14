@@ -1,0 +1,37 @@
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  MCP_PUBLISHER_VERSION: 1.8.1
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check server.json version matches package.json
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          srv=$(node -p "require('./server.json').version")
+          nested=$(node -p "require('./server.json').packages[0].version")
+          test "$pkg" = "$srv" && test "$pkg" = "$nested" \
+            || { echo "version mismatch: package.json=$pkg server.json=$srv packages[0]=$nested"; exit 1; }
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" \
+            | tar -xz mcp-publisher
+
+      - run: ./mcp-publisher validate
+
+      - run: ./mcp-publisher login github-oidc
+
+      - run: ./mcp-publisher publish

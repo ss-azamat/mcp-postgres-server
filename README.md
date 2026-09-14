@@ -1,29 +1,18 @@
 # MCP PostgreSQL Server
 
-A Model Context Protocol (MCP) server for PostgreSQL: **read-only by default**,
-for local, Docker, RDS, Neon, and Supabase databases.
+[![npm version](https://img.shields.io/npm/v/mcp-postgres-server.svg)](https://www.npmjs.com/package/mcp-postgres-server)
+[![CI](https://github.com/antonorlov/mcp-postgres-server/actions/workflows/ci.yml/badge.svg)](https://github.com/antonorlov/mcp-postgres-server/actions/workflows/ci.yml)
+
+A Model Context Protocol (MCP) server for PostgreSQL: local, Docker, RDS, Neon,
+and Supabase databases.
 
 The server is small and auditable, with four runtime dependencies: the MCP SDK,
 `pg`, `pg-connection-string`, and `zod` (plus `ssh2`, an optional dependency used
-only for SSH tunneling). Read-only is enforced by PostgreSQL itself.
+only for SSH tunneling).
 
 Requires Node.js 20 or newer.
 
-## Installation
-
-### Manual Installation
-
-```bash
-npm install mcp-postgres-server
-```
-
-Or run directly with:
-
-```bash
-npx mcp-postgres-server
-```
-
-## Configuration
+## Quick start
 
 The preferred way to configure the server is a single `DATABASE_URL`:
 
@@ -45,6 +34,8 @@ The preferred way to configure the server is a single `DATABASE_URL`:
 
 With `PG_ALLOW_WRITE` set to `"false"` the server has **read-only access** to the
 database. This is the default; set it to `"true"` only if the model must write.
+
+The same JSON works in any MCP client that speaks stdio: VS Code, Cursor, Claude Code, Codex, Windsurf.
 
 Alternatively, set the individual `PG_*` variables; they are used when
 `DATABASE_URL` is not set:
@@ -69,27 +60,19 @@ Alternatively, set the individual `PG_*` variables; they are used when
 }
 ```
 
-### Environment variables
+### Manual Installation
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | - | Full connection string (preferred). Supports `?sslmode=` in the URL. |
-| `PG_HOST` | - | Database host (fallback when `DATABASE_URL` is not set) |
-| `PG_PORT` | `5432` | Database port |
-| `PG_USER` | - | Database user |
-| `PG_PASSWORD` | - | Database password |
-| `PG_DATABASE` | - | Database name |
-| `PG_ALLOW_WRITE` | `false` | When `true`, `execute` performs writes and reads are sent directly. Off (default) is read-only: `execute` refuses writes and each read runs in a `READ ONLY` transaction |
-| `PG_SSLMODE` | - | `disable` \| `allow` \| `prefer` \| `require` \| `verify-ca` \| `verify-full`. `require`/`allow`/`prefer` encrypt without verifying the certificate; `verify-ca`/`verify-full` verify (supply a CA via `PG_SSL_CA`). Unrecognized values fail at startup. **Limitation:** unlike libpq, `allow`/`prefer` do not fall back to plaintext (node-postgres has no opportunistic SSL), so a server without TLS needs `disable`. |
-| `PG_SSL_CA` | - | Path to a CA certificate file. Setting it by itself implies `verify-full` |
-| `PG_ENABLE_RUNTIME_CONNECT` | `false` | Register the `connect_db` tool (runtime credential switching) |
-| `PG_MAX_RESULT_BYTES` | `32768` | Byte budget for a `query` result sent to the model. Whole rows are kept while they fit; over the budget `returnedRows < rowCount` and `truncated: true` (if not even the first row fits, `returnedRows` is 0 with a hint). ~32 KiB ≈ 8k tokens; lower it for strict clients, raise it if your client allows more. |
-| `PG_STATEMENT_TIMEOUT` | `30000` | Statement timeout in milliseconds, applied to every session |
-| `PG_CONNECT_TIMEOUT` | `10000` | Timeout in milliseconds for a single connect attempt (raise it for slow links or SSH tunnels) |
+```bash
+npm install mcp-postgres-server
+```
 
-To reach a database only accessible through a bastion, see [SSH tunneling](#ssh-tunneling) (adds `PG_SSH_*` variables).
+Or run directly with:
 
-### Example configurations
+```bash
+npx mcp-postgres-server
+```
+
+## Connect to your database
 
 **Local Postgres:**
 
@@ -124,7 +107,7 @@ DATABASE_URL=postgres://mcp_readonly:secret@ep-xxx-xxx.us-east-2.aws.neon.tech/m
 DATABASE_URL=postgres://postgres.xxxxxxxx:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
 ```
 
-## Available Tools
+## Tools
 
 Tool availability depends on configuration:
 
@@ -256,6 +239,26 @@ use_mcp_tool({
 });
 ```
 
+## Configuration reference
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | - | Full connection string (preferred). Supports `?sslmode=` in the URL. |
+| `PG_HOST` | - | Database host (fallback when `DATABASE_URL` is not set) |
+| `PG_PORT` | `5432` | Database port |
+| `PG_USER` | - | Database user |
+| `PG_PASSWORD` | - | Database password |
+| `PG_DATABASE` | - | Database name |
+| `PG_ALLOW_WRITE` | `false` | When `true`, `execute` performs writes and reads are sent directly. Off (default) is read-only: `execute` refuses writes and each read runs in a `READ ONLY` transaction |
+| `PG_SSLMODE` | - | `disable` \| `allow` \| `prefer` \| `require` \| `verify-ca` \| `verify-full`. `require`/`allow`/`prefer` encrypt without verifying the certificate; `verify-ca`/`verify-full` verify (supply a CA via `PG_SSL_CA`). Unrecognized values fail at startup. **Limitation:** unlike libpq, `allow`/`prefer` do not fall back to plaintext (node-postgres has no opportunistic SSL), so a server without TLS needs `disable`. |
+| `PG_SSL_CA` | - | Path to a CA certificate file. Setting it by itself implies `verify-full` |
+| `PG_ENABLE_RUNTIME_CONNECT` | `false` | Register the `connect_db` tool (runtime credential switching) |
+| `PG_MAX_RESULT_BYTES` | `32768` | Byte budget for a `query` result sent to the model. Whole rows are kept while they fit; over the budget `returnedRows < rowCount` and `truncated: true` (if not even the first row fits, `returnedRows` is 0 with a hint). ~32 KiB ≈ 8k tokens; lower it for strict clients, raise it if your client allows more. |
+| `PG_STATEMENT_TIMEOUT` | `30000` | Statement timeout in milliseconds, applied to every session |
+| `PG_CONNECT_TIMEOUT` | `10000` | Timeout in milliseconds for a single connect attempt (raise it for slow links or SSH tunnels) |
+
+To reach a database only accessible through a bastion, see [SSH tunneling](#ssh-tunneling) (adds `PG_SSH_*` variables).
+
 ## Features
 
 * Read-only by default; writes are an explicit opt-in (`PG_ALLOW_WRITE=true`)
@@ -309,8 +312,8 @@ a snapshot, or a tightly scoped role. See [SECURITY.md](SECURITY.md).
 ## SSH tunneling
 
 Set `PG_SSH_HOST` (plus auth and host-key verification) to reach a database that is only accessible
-through a bastion. The connection string / `PG_*` fields then describe the database **as seen from the
-bastion**:
+through a bastion (an SSH jump host). The connection string / `PG_*` fields then describe the
+database **as seen from the bastion**:
 
 ```json
 {
