@@ -1,0 +1,132 @@
+{
+  "manifest_version": "0.3",
+  "name": "mcp-postgres-server",
+  "display_name": "PostgreSQL",
+  "version": "0.3.1",
+  "description": "MCP server for PostgreSQL: local, Docker, RDS, Neon, Supabase, or behind an SSH bastion.",
+  "long_description": "Connects an agent to a PostgreSQL database. It reaches local and Docker databases, managed Postgres on RDS, Neon and Supabase, and a database that is only available through an SSH bastion, with the bastion host key pinned.\n\nWrites are off by default and are refused by PostgreSQL itself, not by a client-side SQL filter: every read runs inside a `BEGIN READ ONLY` transaction, so the rule survives views, rules and functions. Turn writes on with one setting.\n\nResults carry a byte budget, so a large table does not flood the context window. Failures come back as readable messages carrying the SQLSTATE or SSH error code with a hint, so the agent can correct itself.",
+  "author": {
+    "name": "antonorlov",
+    "url": "https://github.com/antonorlov"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antonorlov/mcp-postgres-server"
+  },
+  "homepage": "https://github.com/antonorlov/mcp-postgres-server#readme",
+  "documentation": "https://github.com/antonorlov/mcp-postgres-server#readme",
+  "support": "https://github.com/antonorlov/mcp-postgres-server/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "database",
+    "sql",
+    "ssh-tunnel"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "DATABASE_URL": "${user_config.database_url}",
+        "PG_ALLOW_WRITE": "${user_config.allow_write}",
+        "PG_MAX_RESULT_BYTES": "${user_config.max_result_bytes}",
+        "PG_STATEMENT_TIMEOUT": "${user_config.statement_timeout}",
+        "PG_SSH_HOST": "${user_config.ssh_host}",
+        "PG_SSH_USER": "${user_config.ssh_user}",
+        "PG_SSH_PRIVATE_KEY": "${user_config.ssh_private_key}",
+        "PG_SSH_FINGERPRINT": "${user_config.ssh_fingerprint}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "query",
+      "description": "Run a read-only SQL query and return the rows."
+    },
+    {
+      "name": "list_schemas",
+      "description": "List the schemas visible to the connected user."
+    },
+    {
+      "name": "list_tables",
+      "description": "List the tables in a schema."
+    },
+    {
+      "name": "describe_table",
+      "description": "Describe a table: columns, types, nullability, defaults and primary key."
+    },
+    {
+      "name": "execute",
+      "description": "Run a write statement. Disabled unless writes are enabled."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  },
+  "user_config": {
+    "database_url": {
+      "type": "string",
+      "title": "Database URL",
+      "description": "Connection string, for example postgres://user:pass@host:5432/db?sslmode=require. With an SSH bastion below, the host is resolved from the bastion's network.",
+      "required": true,
+      "sensitive": true
+    },
+    "allow_write": {
+      "type": "boolean",
+      "title": "Allow writes",
+      "description": "Off by default: the execute tool is present but refuses writes, and each read runs in a READ ONLY transaction. On: execute performs INSERT, UPDATE, DELETE and DDL.",
+      "required": false,
+      "default": false
+    },
+    "max_result_bytes": {
+      "type": "number",
+      "title": "Result byte budget",
+      "description": "Byte budget for a query result sent to the model. Whole rows are kept up to the budget; over it, the result is flagged as truncated.",
+      "required": false,
+      "default": 32768,
+      "min": 1024,
+      "max": 4194304
+    },
+    "statement_timeout": {
+      "type": "number",
+      "title": "Statement timeout (ms)",
+      "description": "Per-statement timeout applied to every session.",
+      "required": false,
+      "default": 30000,
+      "min": 1000,
+      "max": 600000
+    },
+    "ssh_host": {
+      "type": "string",
+      "title": "SSH bastion host",
+      "description": "Optional. Setting it routes the database connection through an SSH tunnel to this host. Leave empty for a directly reachable database.",
+      "required": false
+    },
+    "ssh_user": {
+      "type": "string",
+      "title": "SSH user",
+      "description": "Username on the bastion.",
+      "required": false
+    },
+    "ssh_private_key": {
+      "type": "file",
+      "title": "SSH private key",
+      "description": "Private key file for the bastion. If empty, authentication falls back to a running SSH agent, then to a default key in ~/.ssh.",
+      "required": false
+    },
+    "ssh_fingerprint": {
+      "type": "string",
+      "title": "SSH host fingerprint",
+      "description": "Pinned host key of the bastion, as SHA256:... . Required when tunneling: without it the tunnel refuses to connect. Read it with ssh-keyscan -t ed25519 HOST | ssh-keygen -lf -",
+      "required": false
+    }
+  }
+}

@@ -1,0 +1,22 @@
+# Trim what a runtime bundle never loads: dependency test suites, examples,
+# docs and TypeScript sources shipped alongside the compiled output.
+**/test/**
+**/tests/**
+**/__tests__/**
+**/examples/**
+**/example/**
+**/.github/**
+**/*.md
+**/*.map
+**/*.ts
+!**/*.d.ts
+
+# Optional native accelerators for ssh2. The bundle is built with --ignore-scripts, so these
+# ship as unbuilt C++ sources; ssh2 try/catches the missing addon and runs its JS paths.
+# Only the C++ goes: the sibling poly1305.js is the WASM chacha20-poly1305 cipher and is loaded
+# at runtime, so dropping the whole crypto/ directory hangs the SSH handshake.
+node_modules/cpu-features/**
+node_modules/nan/**
+node_modules/buildcheck/**
+node_modules/ssh2/lib/protocol/crypto/src/**
+node_modules/ssh2/lib/protocol/crypto/binding.gyp

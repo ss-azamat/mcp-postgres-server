@@ -19,7 +19,8 @@
     "watch": "tsc --watch",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "build:mcpb": "npm run build && node scripts/build-mcpb.mjs"
   },
   "keywords": [
     "mcp",
