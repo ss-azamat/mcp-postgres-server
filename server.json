@@ -9,6 +9,13 @@
     "source": "github"
   },
   "websiteUrl": "https://github.com/antonorlov/mcp-postgres-server#readme",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/antonorlov/mcp-postgres-server/main/assets/logo.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",
