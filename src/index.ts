@@ -14,6 +14,8 @@ import net from 'node:net';
 import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { classifyError, ConnectionError, type DatabaseError } from './errors.js';
 
 export { classifyError, ConnectionError };
@@ -606,7 +608,16 @@ export function createDatabase(
 type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
+  _meta?: Record<string, unknown>;
 };
+
+export interface ToolAuthConfig {
+  readScope: string;
+  writeScope: string;
+  resourceMetadataUrl: string;
+}
+
+type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
 // Compact JSON (no pretty-printing - tokens matter).
 function textResult(payload: unknown): ToolResult {
@@ -616,6 +627,23 @@ function textResult(payload: unknown): ToolResult {
 // An isError result (not a thrown protocol error) so the model can read it and self-correct.
 function errorResult(payload: unknown): ToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(payload) }], isError: true };
+}
+
+function authMeta(scopes: string[], auth: ToolAuthConfig | undefined): Record<string, unknown> | undefined {
+  return auth === undefined ? undefined : { securitySchemes: [{ type: 'oauth2', scopes }] };
+}
+
+function requireToolScopes(
+  extra: ToolExtra,
+  scopes: string[],
+  auth: ToolAuthConfig | undefined
+): ToolResult | undefined {
+  if (auth === undefined || scopes.every((scope) => extra.authInfo?.scopes.includes(scope))) return undefined;
+  const challenge = `Bearer resource_metadata="${auth.resourceMetadataUrl}", error="insufficient_scope", error_description="Required scope: ${scopes.join(' ')}"`;
+  return {
+    ...errorResult({ message: `authorization requires scope${scopes.length === 1 ? '' : 's'}: ${scopes.join(' ')}` }),
+    _meta: { 'mcp/www_authenticate': [challenge] },
+  };
 }
 
 const paramsShape = z
@@ -628,8 +656,11 @@ function reply<T>(result: Result<T>): ToolResult {
 }
 
 // execute is always registered (refuses in read-only mode); connect_db is gated - an unregistered tool can't be called.
-function registerTools(server: McpServer, db: Database, config: ServerConfig): void {
+function registerTools(server: McpServer, db: Database, config: ServerConfig, auth?: ToolAuthConfig): void {
   const capHint = `Prefer $1, $2 placeholders with the params array over interpolating values. Results are capped at ~${config.maxResultBytes} bytes; truncated:true means rows were dropped - add LIMIT/WHERE or select fewer columns.`;
+  const readScopes = auth === undefined ? [] : [auth.readScope];
+  const writeScopes = auth === undefined ? [] : [auth.readScope, auth.writeScope];
+  const queryScopes = config.readOnly ? readScopes : writeScopes;
   server.registerTool(
     'query',
     {
@@ -650,8 +681,12 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         params: paramsShape,
       },
       annotations: { readOnlyHint: config.readOnly, openWorldHint: false },
+      _meta: authMeta(queryScopes, auth),
     },
-    async ({ sql, params }) => reply(await db.query(sql, params))
+    async ({ sql, params }, extra) => {
+      const denied = requireToolScopes(extra, queryScopes, auth);
+      return denied ?? reply(await db.query(sql, params));
+    }
   );
 
   server.registerTool(
@@ -671,8 +706,12 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         params: paramsShape,
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      _meta: authMeta(writeScopes, auth),
     },
-    async ({ sql, params }) => reply(await db.execute(sql, params))
+    async ({ sql, params }, extra) => {
+      const denied = requireToolScopes(extra, writeScopes, auth);
+      return denied ?? reply(await db.execute(sql, params));
+    }
   );
 
   server.registerTool(
@@ -684,8 +723,12 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         'Returns {schemas: [name, ...]}.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
+      _meta: authMeta(readScopes, auth),
     },
-    async () => reply(await db.listSchemas())
+    async (_args, extra) => {
+      const denied = requireToolScopes(extra, readScopes, auth);
+      return denied ?? reply(await db.listSchemas());
+    }
   );
 
   server.registerTool(
@@ -699,8 +742,12 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         schema: z.string().optional().describe("Schema name (default: 'public')"),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
+      _meta: authMeta(readScopes, auth),
     },
-    async ({ schema }) => reply(await db.listTables(schema ?? DEFAULT_SCHEMA))
+    async ({ schema }, extra) => {
+      const denied = requireToolScopes(extra, readScopes, auth);
+      return denied ?? reply(await db.listTables(schema ?? DEFAULT_SCHEMA));
+    }
   );
 
   server.registerTool(
@@ -715,8 +762,12 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
         schema: z.string().optional().describe("Schema name (default: 'public')"),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
+      _meta: authMeta(readScopes, auth),
     },
-    async ({ table, schema }) => reply(await db.describeTable(schema ?? DEFAULT_SCHEMA, table))
+    async ({ table, schema }, extra) => {
+      const denied = requireToolScopes(extra, readScopes, auth);
+      return denied ?? reply(await db.describeTable(schema ?? DEFAULT_SCHEMA, table));
+    }
   );
 
   if (config.allowRuntimeConnect) {
@@ -737,8 +788,11 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
           database: z.string().describe('Database name'),
         },
         annotations: { readOnlyHint: false, openWorldHint: true },
+        _meta: authMeta(writeScopes, auth),
       },
-      async ({ host, port, user, password, database }) => {
+      async ({ host, port, user, password, database }, extra) => {
+        const denied = requireToolScopes(extra, writeScopes, auth);
+        if (denied !== undefined) return denied;
         const result = await db.retarget({ host, port, user, password, database });
         return result.ok
           ? textResult({ message: 'Successfully connected to PostgreSQL database', ...result.data })
@@ -748,14 +802,25 @@ function registerTools(server: McpServer, db: Database, config: ServerConfig): v
   }
 }
 
+// Build one protocol server over an externally owned database. HTTP uses this to create a fresh,
+// stateless MCP protocol instance per request while retaining one process-owned database service.
+export function createProtocolServer(
+  config: ServerConfig,
+  db: Database,
+  auth?: ToolAuthConfig
+): McpServer {
+  const server = new McpServer({ name: 'postgres-server', version: VERSION });
+  registerTools(server, db, config, auth);
+  return server;
+}
+
 // MCP server over one database, plus an awaitable close() for both (server.close alone doesn't await the db).
 export function createApp(
   config: ServerConfig,
   connector: Connector = defaultConnector
 ): { server: McpServer; close: () => Promise<void> } {
-  const server = new McpServer({ name: 'postgres-server', version: VERSION });
   const db = createDatabase(config, connector);
-  registerTools(server, db, config);
+  const server = createProtocolServer(config, db);
   // Also close the db if the transport closes on its own (SDK leaves onclose unset).
   server.server.onclose = () => void db.close();
   return {

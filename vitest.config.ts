@@ -9,10 +9,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**'],
-      // ssh-connector is I/O glue (sockets, ssh2 forwarding, pg over a tunnel): its logic is unit-tested
-      // with injected fakes and its real wiring is proven by the stand's SSH-bastion E2E, neither of which
-      // a coverage % would capture. Excluded so it does not force over-mocked tests onto the core's bar.
-      exclude: ['src/ssh-connector.ts'],
+      // Transport entry points are I/O glue (HTTP/listeners or ssh2 forwarding). Their logic is tested
+      // through real loopback transports and injected boundaries; forcing line coverage over shutdown and
+      // fatal-process branches would add mocks rather than confidence. Security/config/core stay at 100%.
+      exclude: ['src/http.ts', 'src/ssh-connector.ts'],
       // 100% is the bar for the core, and CI enforces it. Run with PG_TEST_URL set: the
       // integration suite covers the paths that only a real engine exercises.
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },

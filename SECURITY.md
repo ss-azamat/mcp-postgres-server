@@ -59,8 +59,15 @@ copy, or a role scoped to the exact tables the task needs.
 - `connect_db` (runtime credential switching) is disabled unless
   `PG_ENABLE_RUNTIME_CONNECT=true`; otherwise credentials come only from the
   environment, never from the model.
-- Local stdio server only - no HTTP transport, tokens, or OAuth, so
-  remote-MCP attacks do not apply.
+- The stdio entry point remains local and has no HTTP or OAuth surface.
+- The hosted Streamable HTTP entry point requires Auth0 OAuth on every MCP request,
+  validates signature/issuer/audience/expiry/scopes, and restricts access to an exact
+  `MCP_OAUTH_ALLOWED_SUBJECTS` allowlist. Keep database credentials in the hosting
+  platform's secret store and terminate public traffic with HTTPS.
+- HTTP `execute` requires both the read and write OAuth scopes. Because `query` can write
+  when `PG_ALLOW_WRITE=true`, it requires both scopes in that mode too.
+- `connect_db` is intentionally unavailable over stateless HTTP; enabling
+  `PG_ENABLE_RUNTIME_CONNECT` makes HTTP startup fail closed.
 
 ## SSH tunneling (optional, `PG_SSH_HOST`)
 

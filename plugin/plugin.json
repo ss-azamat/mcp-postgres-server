@@ -1,0 +1,31 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "postgresql-mcp",
+  "version": "0.3.1",
+  "description": "Explore and query a PostgreSQL database through a protected remote MCP server.",
+  "author": {
+    "name": "antonorlov",
+    "url": "https://github.com/antonorlov"
+  },
+  "homepage": "https://github.com/antonorlov/mcp-postgres-server",
+  "repository": "https://github.com/antonorlov/mcp-postgres-server",
+  "license": "MIT",
+  "keywords": ["postgresql", "database", "mcp"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "PostgreSQL",
+        "shortDescription": "Query a PostgreSQL database",
+        "longDescription": "Explore schemas and tables, inspect table structure, run bounded SQL queries, and optionally execute writes through an OAuth-protected PostgreSQL MCP server.",
+        "developerName": "antonorlov",
+        "category": "Developer Tools",
+        "capabilities": [
+          "List PostgreSQL schemas and tables",
+          "Describe table structure",
+          "Run bounded SQL queries",
+          "Execute writes when enabled"
+        ]
+      }
+    }
+  }
+}

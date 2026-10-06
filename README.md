@@ -6,11 +6,18 @@
 A Model Context Protocol (MCP) server for PostgreSQL: local, Docker, RDS, Neon,
 and Supabase databases.
 
-The server is small and auditable, with four runtime dependencies: the MCP SDK,
-`pg`, `pg-connection-string`, and `zod` (plus `ssh2`, an optional dependency used
-only for SSH tunneling).
+The server is small and auditable. Its database core uses the MCP SDK, `pg`,
+`pg-connection-string`, and `zod`; the hosted transport adds Express, `jose`, and
+request rate limiting (plus `ssh2`, an optional dependency used only for SSH tunneling).
 
 Requires Node.js 20 or newer.
+
+Operational documentation:
+
+- [Installation, deployment, and operations](docs/DEPLOYMENT.md)
+- [System architecture](docs/ARCHITECTURE.md)
+- [Security policy and threat model](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
 ## Quick start
 
@@ -72,6 +79,70 @@ Or run directly with:
 npx mcp-postgres-server
 ```
 
+## Hosted Streamable HTTP
+
+The repository also ships a long-lived, stateless Streamable HTTP entry point for a
+cloud deployment. It exposes `POST` at the path configured by `MCP_PUBLIC_URL`, uses JSON responses, and keeps the same
+database/tool implementation as stdio. OAuth authentication is mandatory because the
+endpoint exposes private database data.
+
+Required hosted-server settings:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_PUBLIC_URL` | required | Canonical HTTPS endpoint including its non-root route, such as `https://mcp.example.com/mcp/postgre/` |
+| `MCP_OAUTH_ISSUER` | required | Auth0 issuer, for example `https://tenant.us.auth0.com/` |
+| `MCP_OAUTH_ALLOWED_SUBJECTS` | required | Comma-separated exact Auth0 `sub` values allowed to use this database |
+| `MCP_OAUTH_AUDIENCE` | `MCP_PUBLIC_URL` | Exact JWT `aud` value to accept; set this to the OpenAI-hosted tunnel resource when tunnel OAuth tokens use that rewritten resource |
+| `MCP_OAUTH_READ_SCOPE` | `postgres:read` | Scope required for every MCP request and read tool |
+| `MCP_OAUTH_WRITE_SCOPE` | `postgres:write` | Additional scope required by `execute`, and by `query` when writes are enabled |
+| `MCP_HTTP_HOST` | `0.0.0.0` | HTTP listen address |
+| `PORT` | `3000` | HTTP listen port |
+| `MCP_RATE_LIMIT_MAX` | `60` | Maximum MCP requests per authenticated subject per minute, per process |
+
+Configure Auth0 with an API identifier equal to the expected audience (normally
+`MCP_PUBLIC_URL`, or `MCP_OAUTH_AUDIENCE` for a rewritten tunnel resource), add the two scopes,
+and configure its authorization-code + PKCE integration for the MCP client. The server
+validates RS256 signatures from the issuer's JWKS, the exact issuer/audience, expiry,
+scope, and subject allowlist. It publishes protected-resource metadata at the RFC 9728
+path advertised in its `WWW-Authenticate` response.
+
+Build and run the included container behind an HTTPS ingress or load balancer:
+
+```bash
+docker build -t mcp-postgres-server .
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL='postgres://mcp_readonly:secret@db:5432/mydb' \
+  -e MCP_PUBLIC_URL='https://your-mcp-host.example.com/mcp/postgre/' \
+  -e MCP_OAUTH_ISSUER='https://your-tenant.us.auth0.com/' \
+  -e MCP_OAUTH_ALLOWED_SUBJECTS='auth0|your-user-id' \
+  mcp-postgres-server
+```
+
+For a source checkout, `npm run build && npm run start:http` starts the same server.
+`GET /healthz` is unauthenticated for platform health checks. The MCP route is taken
+from `MCP_PUBLIC_URL`; `GET` and `DELETE` on that route
+return 405 because this deployment uses stateless request/response operation and does
+not expose a server-initiated SSE channel.
+
+`PG_ENABLE_RUNTIME_CONNECT=true` is rejected at HTTP startup: changing a shared database
+target cannot be scoped safely to a stateless caller. The fixed configured database and
+all other PostgreSQL, TLS, timeout, result-budget, write, and SSH settings work as they do
+under stdio.
+
+For the complete production procedure—including cross-architecture image builds,
+small-EC2 resource limits, Auth0, OpenAI tunnel audiences, nginx, verification,
+upgrades, rollback, and troubleshooting—see
+[Installation, deployment, and operations](docs/DEPLOYMENT.md).
+
+### Codex / ChatGPT plugin template
+
+[`plugin/`](plugin/) is a portable plugin template containing `plugin.json` and
+`mcp.json`. Its MCP connection points at the staging deployment; change that URL when
+packaging another environment, then package the directory or add it to a plugin marketplace. A public
+submission still needs your real publisher identity, verified domain, support/privacy/terms
+URLs, and review material; the checked-in files intentionally do not claim submission readiness.
+
 ## Connect to your database
 
 **Local Postgres:**
@@ -115,7 +186,7 @@ Tool availability depends on configuration:
 |------|-----------|
 | `query`, `list_schemas`, `list_tables`, `describe_table` | Always |
 | `execute` | Always (refuses writes unless `PG_ALLOW_WRITE=true`) |
-| `connect_db` | Only when `PG_ENABLE_RUNTIME_CONNECT=true` |
+| `connect_db` | Stdio only, when `PG_ENABLE_RUNTIME_CONNECT=true` |
 
 ### 1. query
 
@@ -216,7 +287,7 @@ use_mcp_tool({
 });
 ```
 
-### 6. connect_db - requires `PG_ENABLE_RUNTIME_CONNECT=true`
+### 6. connect_db - stdio only; requires `PG_ENABLE_RUNTIME_CONNECT=true`
 
 Connect to a different PostgreSQL database at runtime using provided
 credentials. Not registered by default - prefer configuring credentials
@@ -252,7 +323,7 @@ use_mcp_tool({
 | `PG_ALLOW_WRITE` | `false` | When `true`, `execute` performs writes and reads are sent directly. Off (default) is read-only: `execute` refuses writes and each read runs in a `READ ONLY` transaction |
 | `PG_SSLMODE` | - | `disable` \| `allow` \| `prefer` \| `require` \| `verify-ca` \| `verify-full`. `require`/`allow`/`prefer` encrypt without verifying the certificate; `verify-ca`/`verify-full` verify (supply a CA via `PG_SSL_CA`). Unrecognized values fail at startup. **Limitation:** unlike libpq, `allow`/`prefer` do not fall back to plaintext (node-postgres has no opportunistic SSL), so a server without TLS needs `disable`. |
 | `PG_SSL_CA` | - | Path to a CA certificate file. Setting it by itself implies `verify-full` |
-| `PG_ENABLE_RUNTIME_CONNECT` | `false` | Register the `connect_db` tool (runtime credential switching) |
+| `PG_ENABLE_RUNTIME_CONNECT` | `false` | Register the `connect_db` tool under stdio; the stateless HTTP server rejects this setting |
 | `PG_MAX_RESULT_BYTES` | `32768` | Byte budget for a `query` result sent to the model. Whole rows are kept while they fit; over the budget `returnedRows < rowCount` and `truncated: true` (if not even the first row fits, `returnedRows` is 0 with a hint). ~32 KiB ≈ 8k tokens; lower it for strict clients, raise it if your client allows more. |
 | `PG_STATEMENT_TIMEOUT` | `30000` | Statement timeout in milliseconds, applied to every session |
 | `PG_CONNECT_TIMEOUT` | `10000` | Timeout in milliseconds for a single connect attempt (raise it for slow links or SSH tunnels) |

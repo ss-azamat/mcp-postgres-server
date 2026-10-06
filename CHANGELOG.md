@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- A long-lived, stateless Streamable HTTP server (`mcp-postgres-http`) with a configurable
+  `POST` route derived from `MCP_PUBLIC_URL`,
+  health checks, graceful shutdown, per-subject rate limiting, Docker packaging, and a
+  portable Codex/ChatGPT plugin template.
+- Auth0 OAuth resource-server support with protected-resource discovery, RS256/JWKS token
+  verification, exact issuer/audience validation, read/write scopes, and a subject allowlist.
+- Operator documentation for stdio and hosted installation, cross-architecture Docker
+  deployment, constrained EC2 operation, nginx/TLS, Auth0, Secure MCP Tunnel audiences,
+  verification, upgrades, rollback, monitoring, and troubleshooting; plus a system
+  architecture reference covering components, request flow, security boundaries, and lifecycle.
+- The npm package now includes the operator manuals and portable plugin template referenced
+  by the README.
+
+### Changed
+
+- The tool-registration and database lifecycles are separable so stateless HTTP protocol
+  instances can safely share one process-owned database service while stdio behavior stays
+  backward compatible.
+- OAuth token audience verification can be configured independently with
+  `MCP_OAUTH_AUDIENCE` for OpenAI Secure MCP Tunnel resource rewriting.
+
+### Security
+
+- Hosted HTTP refuses to start with runtime database retargeting enabled. Write-capable
+  tools require a distinct OAuth write scope in addition to the global read scope.
+
 ## [0.3.1] - 2026-09-14
 
 ### Changed
